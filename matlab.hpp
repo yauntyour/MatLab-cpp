@@ -19,7 +19,28 @@ namespace matplot
     {
         float r, g, b, a;
         Color(float r = 0.0f, float g = 0.0f, float b = 0.0f, float a = 1.0f)
-            : r(r), g(g), b(b), a(a) {}
+        {
+            if (r > 1.0f || g > 1.0f || b > 1.0f || a > 1.0f)
+            {
+                this->r = std::clamp(r / 255.0f, 0.0f, 1.0f);
+                this->g = std::clamp(g / 255.0f, 0.0f, 1.0f);
+                this->b = std::clamp(b / 255.0f, 0.0f, 1.0f);
+                this->a = std::clamp(a / 255.0f, 0.0f, 1.0f);
+            }
+            else
+            {
+                this->r = std::clamp(r, 0.0f, 1.0f);
+                this->g = std::clamp(g, 0.0f, 1.0f);
+                this->b = std::clamp(b, 0.0f, 1.0f);
+                this->a = std::clamp(a, 0.0f, 1.0f);
+            }
+        }
+
+        Color(int r, int g, int b, int a = 255)
+            : r(std::clamp(static_cast<float>(r) / 255.0f, 0.0f, 1.0f)),
+              g(std::clamp(static_cast<float>(g) / 255.0f, 0.0f, 1.0f)),
+              b(std::clamp(static_cast<float>(b) / 255.0f, 0.0f, 1.0f)),
+              a(std::clamp(static_cast<float>(a) / 255.0f, 0.0f, 1.0f)) {}
 
         static Color Red() { return Color(1.0f, 0.0f, 0.0f); }
         static Color Green() { return Color(0.0f, 1.0f, 0.0f); }
@@ -415,7 +436,7 @@ namespace matplot
         }
 
     public:
-        Figure(int w = 800, int h = 600) : width(w), height(h)
+        Figure(std::string Title = "MATPlot Figure", int w = 800, int h = 600) : width(w), height(h)
         {
             static bool glfwInitDone = false;
             if (!glfwInitDone)
@@ -428,7 +449,7 @@ namespace matplot
                 glfwInitDone = true;
             }
 
-            window = glfwCreateWindow(width, height, "MATPlot Figure", nullptr, nullptr);
+            window = glfwCreateWindow(width, height, Title.c_str(), nullptr, nullptr);
             if (!window)
             {
                 std::cerr << "Failed to create GLFW window\n";
@@ -462,9 +483,9 @@ namespace matplot
         }
     };
 
-    inline Figure *figure(int /*id*/ = -1)
+    inline Figure *figure(std::string Title = "MATPlot Figure", int w = 800, int h = 600)
     {
-        return new Figure();
+        return new Figure(Title, w, h);
     }
 
     template <typename T>
