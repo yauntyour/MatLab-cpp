@@ -1,4 +1,3 @@
-// matlab.hpp - 支持窗口中心为原点 + 自动等比缩放
 #pragma once
 
 #include <vector>
