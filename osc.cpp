@@ -17,7 +17,7 @@ int main()
     axes->setDataRange(-1.8f, 1.8f, -3.0f, 3.0f);
 
     std::vector<float> initX, initY;
-    auto line = plot(axes, initX, initY, "b-");
+    auto line = plot(axes, initX, initY, "r-");
     line->setMaxPoints(50);
     line->setAutoUpdateAxes(false);
 
