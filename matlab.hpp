@@ -116,7 +116,6 @@ namespace matplot
     class Axes
     {
     private:
-        // 逻辑坐标范围（由用户数据决定）
         float dataXMin = -10, dataXMax = 10;
         float dataYMin = -10, dataYMax = 10;
 
@@ -134,6 +133,11 @@ namespace matplot
             dataYMax = yMax;
         }
 
+        float getdataXMin() { return dataXMin; };
+        float getdataXMax() { return dataXMax; };
+        float getdataYMin() { return dataYMin; };
+        float getdataYMax() { return dataYMax; };
+
         void setTitle(const std::string &t) { title = t; }
         void setXLabel(const std::string &l) { xLabel = l; }
         void setYLabel(const std::string &l) { yLabel = l; }
@@ -144,7 +148,6 @@ namespace matplot
             children.push_back(obj);
         }
 
-        // 动态计算正交投影范围，使 (0,0) 居中且保持比例
         void draw(int winWidth, int winHeight) const
         {
             if (winWidth <= 0 || winHeight <= 0)
@@ -158,18 +161,15 @@ namespace matplot
             float viewWidth, viewHeight;
             if (winAspect > dataAspect)
             {
-                // 窗口更宽 → 以高度为基准，左右留黑边（实际是扩展 X）
                 viewHeight = dataHeight;
                 viewWidth = dataHeight * winAspect;
             }
             else
             {
-                // 窗口更高 → 以上下为基准，上下留黑边（扩展 Y）
                 viewWidth = dataWidth;
                 viewHeight = dataWidth / winAspect;
             }
 
-            // 使 (0,0) 位于中心：对称范围
             float left = -viewWidth / 2.0f;
             float right = viewWidth / 2.0f;
             float bottom = -viewHeight / 2.0f;
@@ -239,7 +239,6 @@ namespace matplot
         }
     };
 
-    // ========== Plot Objects ==========
     class LinePlot : public PlotObject
     {
     private:
@@ -251,9 +250,20 @@ namespace matplot
         Color markerColor = Color::Red();
         float markerSize = 5.0f;
 
+        size_t maxPoints = 200;
+        bool autoUpdateAxesRange = true;
+        std::weak_ptr<Axes> linkedAxes; // 弱引用，避免循环引用
+
     public:
-        LinePlot(const std::vector<float> &x, const std::vector<float> &y)
-            : xData(x), yData(y) {}
+        LinePlot(const std::vector<float> &x, const std::vector<float> &y, size_t maxPts = 200)
+            : xData(x), yData(y), maxPoints(maxPts)
+        {
+            if (xData.size() > maxPoints)
+            {
+                xData.erase(xData.begin(), xData.end() - maxPoints);
+                yData.erase(yData.begin(), yData.end() - maxPoints);
+            }
+        }
 
         void setColor(const Color &c) { lineColor = c; }
         void setLineWidth(float w) { lineWidth = w; }
@@ -261,6 +271,39 @@ namespace matplot
         void setMarkerStyle(MarkerStyle style) { markerStyle = style; }
         void setMarkerColor(const Color &c) { markerColor = c; }
         void setMarkerSize(float size) { markerSize = size; }
+        void setMaxPoints(size_t n) { maxPoints = n; }
+        void setAutoUpdateAxes(bool enable) { autoUpdateAxesRange = enable; }
+
+        void appendData(float x, float y, std::shared_ptr<Axes> ax = nullptr)
+        {
+            if (ax)
+                linkedAxes = ax;
+            xData.push_back(x);
+            yData.push_back(y);
+            if (xData.size() > maxPoints)
+            {
+                xData.erase(xData.begin());
+                yData.erase(yData.begin());
+            }
+
+            if (autoUpdateAxesRange && !linkedAxes.expired())
+            {
+                auto axes = linkedAxes.lock();
+                if (!xData.empty())
+                {
+                    auto xMinMax = std::minmax_element(xData.begin(), xData.end());
+                    auto yMinMax = std::minmax_element(yData.begin(), yData.end());
+                    float xMin = static_cast<float>(*xMinMax.first);
+                    float xMax = static_cast<float>(*xMinMax.second);
+                    float yMin = static_cast<float>(*yMinMax.first);
+                    float yMax = static_cast<float>(*yMinMax.second);
+
+                    float marginX = (xMax - xMin) * 0.05f;
+                    float marginY = (yMax - yMin) * 0.05f;
+                    axes->setDataRange(xMin - marginX, xMax + marginX, yMin - marginY, yMax + marginY);
+                }
+            }
+        }
 
         void draw() const override
         {
@@ -357,8 +400,6 @@ namespace matplot
             }
         }
     };
-
-    // ========== Figure ==========
     class Figure
     {
     public:
@@ -368,11 +409,9 @@ namespace matplot
         std::shared_ptr<Axes> currentAxes;
         int width, height;
 
-        // 回调函数
         static void framebuffer_size_callback(GLFWwindow *window, int w, int h)
         {
             glViewport(0, 0, w, h);
-            // 不需要更新 axes 数据范围，只需在 draw 时重新计算 ortho
         }
 
     public:
@@ -400,7 +439,6 @@ namespace matplot
             glViewport(0, 0, width, height);
             currentAxes = std::make_shared<Axes>();
 
-            // 设置回调
             glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
             glfwSetWindowUserPointer(window, this);
         }
@@ -424,8 +462,6 @@ namespace matplot
         }
     };
 
-    // ========== Global Functions ==========
-
     inline Figure *figure(int /*id*/ = -1)
     {
         return new Figure();
@@ -441,7 +477,6 @@ namespace matplot
             std::vector<float>(x.begin(), x.end()),
             std::vector<float>(y.begin(), y.end()));
 
-        // 计算数据范围
         if (!x.empty() && !y.empty())
         {
             auto xMinMax = std::minmax_element(x.begin(), x.end());
@@ -451,16 +486,9 @@ namespace matplot
             float yMin = static_cast<float>(*yMinMax.first);
             float yMax = static_cast<float>(*yMinMax.second);
 
-            // 扩展一点边界（可选）
             float marginX = (xMax - xMin) * 0.05f;
             float marginY = (yMax - yMin) * 0.05f;
-            xMin -= marginX;
-            xMax += marginX;
-            yMin -= marginY;
-            yMax += marginY;
-
-            // 更新 axes 的逻辑范围
-            ax->setDataRange(xMin, xMax, yMin, yMax);
+            ax->setDataRange(xMin - marginX, xMax + marginX, yMin - marginY, yMax + marginY);
         }
 
         if (!style.empty())

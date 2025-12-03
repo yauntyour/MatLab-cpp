@@ -1,4 +1,3 @@
-// main.cpp - 单窗口正确绘制多条曲线
 #include "matlab.hpp"
 #include <cmath>
 #include <vector>
@@ -24,9 +23,8 @@ int main()
     axes1->setYLabel("Y");
     axes1->grid(true);
 
-    // === 向该 axes 添加曲线（关键修改！）===
-    plot(axes1, x, y1, "b-");  // 蓝色实线
-    plot(axes1, x, y2, "r--"); // 红色虚线
+    plot(axes1, x, y1, "b-");
+    plot(axes1, x, y2, "r--");
 
     // === 主渲染循环 ===
     std::vector<Figure *> figures = {fig1};

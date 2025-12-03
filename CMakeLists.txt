@@ -14,7 +14,11 @@ include_directories(${OPENGL_INCLUDE_DIR}
     ${GLFW3_INCLUDE_DIR})
 
 add_executable(${PROJECT_NAME} main.cpp)
+add_executable(oscilloscope osc.cpp)
 # 链接库
 target_link_libraries(${PROJECT_NAME}
+    ${OPENGL_LIBRARIES}
+    glfw)
+target_link_libraries(oscilloscope
     ${OPENGL_LIBRARIES}
     glfw)
